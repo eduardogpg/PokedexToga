@@ -19,14 +19,18 @@ class Pokedex(toga.App):
         self.pokemons = []
         self.headings = ['Pokemon name']
 
+        self.offset = 0
+        self.limit = 20
+
         self.table = self.create_table()
-        self.tools = self.create_tools()
+        self.next_command, self.previous_command = self.create_tools()
         self.content = self.create_content()
 
-        self.load_pokemons()
+        self.load_pokemon()
 
     def startup(self):
         self.main_window = toga.MainWindow('main', title=self.name, size=self.size)
+        self.main_window.toolbar.add(self.next_command, self.previous_command)
 
         split = toga.SplitContainer()
         split.content = [self.table, self.content]
@@ -52,12 +56,33 @@ class Pokedex(toga.App):
         return description
 
     def create_tools(self):
-        pass
+        next = toga.Command(self.next, label='Siguiente',
+            icon=os.path.join(icon_dir, 'bulbasaur.png')
+        )
+        
+        previous = toga.Command(self.previous, label='Anterior',
+            icon=os.path.join(icon_dir, 'metapod.png')
+        )
+
+        return next, previous
+
+    def next(self, widget):
+        self.offset += 1
+        self.load_pokemon()
+
+    def previous(self, widget):
+        self.offset -= 1
+        self.load_pokemon()
+
+    def validate_next_command(self):
+        self.previous_command.enabled = not self.offset == 0
 
     def get_pokemon_url(self):
-        return 'https://pokeapi.co/api/v2/pokemon-form?offset=0&limit=20'
+        return 'https://pokeapi.co/api/v2/pokemon-form?offset={}&limit={}'.format(self.offset, self.limit)
 
-    def load_pokemons(self):
+    def load_pokemon(self):
+        self.pokemons.clear()
+
         response = requests.get(self.get_pokemon_url())
         if response:
             results = response.json()
@@ -68,6 +93,7 @@ class Pokedex(toga.App):
                 self.pokemons.append(name)
 
         self.table.data = self.pokemons
+        self.validate_next_command()
 
 if __name__ == '__main__':
     app = Pokedex('Podedex', 'com.codigofacilito.Podedex')
