@@ -18,52 +18,64 @@ class Pokedex(toga.App):
         self.headings = ['Name']
         self.pokemon_list = []
 
+        self.create_table()
+        self.create_toolbar()
+        self.create_information_area()
+
         self.load_pokemon()
 
     def startup(self):
         self.main_window = toga.MainWindow('main', title=self.name, size=self.size)
 
-        self.table = self.create_table()
-        self.information_area = self.create_information_area()
-
         split = toga.SplitContainer()
         split.content = [self.table, self.information_area]
 
-        next_command = self.create_next_command()
-        previous_command = self.create_previous_command()
-
         self.main_window.content = split
-        self.main_window.toolbar.add(next_command, previous_command)
+        self.main_window.toolbar.add(self.next_command, self.previous_command)
 
         self.main_window.show()
 
     def create_table(self):
-        table = toga.Table(self.headings, on_select=self.select_element)
-
-        return table
+        self.table = toga.Table(self.headings, on_select=self.select_element,
+                                data=self.pokemon_list)
 
     def create_information_area(self):
-        information = toga.Box()
+        self.information_area = toga.Box()
 
-        return information
+    def create_toolbar(self):
+        self.create_next_command()
+        self.create_previous_command()
+
+        self.enable_previous_command()
+
+    def create_next_command(self):
+        self.next_command = toga.Command(self.next, label='Siguiente',
+                                            icon=BULBASAUR_ICON)
+
+    def create_previous_command(self):
+        self.previous_command = toga.Command(self.previous, label='Anterior',
+                                            icon=METAPOD_ICON)
 
     def select_element(self, widget, row):
-        print("Elemento seleccionado!")
+        pass
 
     def next(self, widget):
         self.offset += 1
+        self.command_handler(widget)
 
     def previous(self, widget):
         self.offset -= 1
+        self.command_handler(widget)
 
-    def validate_commands(self):
-        pass
+    def command_handler(self, widget):
+        widget.enabled = False
+        self.load_pokemon()
+        widget.enabled = True
 
-    def create_next_command(self):
-        return toga.Command(self.next, label='Siguiente', icon=BULBASAUR_ICON)
+        self.enable_previous_command()
 
-    def create_previous_command(self):
-        return toga.Command(self.previous, label='Anterior', icon=METAPOD_ICON)
+    def enable_previous_command(self):
+        self.previous_command.enabled = not self.offset == 0
 
     def load_pokemon(self):
         self.pokemon_list.clear()
@@ -77,6 +89,8 @@ class Pokedex(toga.App):
             for pokemon in result.get('results', []):
                 name = pokemon.get('name')
                 self.pokemon_list.append(name)
+
+        self.table.data = self.pokemon_list
 
     def get_pokemon(self, id):
         path = "{}/{}".format(POKE_API, id)
