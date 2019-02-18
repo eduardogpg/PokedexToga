@@ -29,8 +29,6 @@ class Pokemon():
             if name:
                 self.abilities.append(name)
 
-        print(len(self.abilities))
-
     @property
     def description(self):
         desc = 'Abilities :\n'
@@ -60,6 +58,7 @@ class Pokedex(toga.App):
         self.create_components()
 
     def load_data(self):
+        self.pokemon.clear()
         path = "{}?offset={}&limit={}".format(POKE_API, self.offset, self.limit)
 
         response = requests.get(path)
@@ -85,7 +84,7 @@ class Pokedex(toga.App):
 
                 self.current_pokemon = pokemon
                 self.pokemon_loaded[id] = pokemon
-                
+
 
         self.update_information_area()
 
@@ -95,6 +94,8 @@ class Pokedex(toga.App):
         self.create_previous_command()
         self.create_image_view(DEFAULT_IMAGE)
         self.create_description_content(TITLE, TEXT)
+
+        self.validate_previous_command()
 
     def create_table(self):
         self.table = toga.Table(self.headings,
@@ -116,12 +117,13 @@ class Pokedex(toga.App):
         self.image_view = toga.ImageView(image, style=style)
 
     def create_description_content(self, title, text):
-        style = Pack(font_family=FANTASY, text_align=CENTER)
+        style = Pack(font_family=MONOSPACE, text_align=CENTER)
 
         self.title = toga.Label(title, style=style)
         self.description = toga.Label(text, style=style)
 
         self.title.style.font_size = 20
+        self.title.style.padding_bottom = 10
         self.description.style.font_size = 18
 
     def startup(self):
@@ -158,10 +160,26 @@ class Pokedex(toga.App):
         return name[0].upper() + name[1:]
 
     def next(self, widget):
-        pass
+        self.offset += 10
+        self.handler_command(widget)
 
     def previous(self, widget):
-        pass
+        self.offset -= 10
+        self.handler_command(widget)
+
+    def handler_command(self, widget):
+        widget.enabled = False
+
+        self.load_data()
+        self.table.data = self.pokemon
+        self.table._selection = None
+
+        widget.enabled = True
+
+        self.validate_previous_command()
+
+    def validate_previous_command(self):
+        self.previous_command.enabled = not self.offset == 0
 
 if __name__ == '__main__':
     app = Pokedex('Pokedex', 'com.codigofacilito.Pokedex')
