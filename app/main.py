@@ -1,17 +1,21 @@
 import toga
 import requests
+import threading
 
 from consts import *
 from toga.colors import *
 from toga.style.pack import *
 
 class Pokemon():
-    def __init__(self, name):
+    def __init__(self, name, response):
         self.name = name
         self.sprite = ''
 
         self.moves = list()
         self.abilities = list()
+        self.create_by_dict(response)
+
+        self.name = response['forms'][0]['name']
 
     def create_by_dict(self, response):
         self.sprite_by_dict(response)
@@ -33,7 +37,7 @@ class Pokemon():
     def description(self):
         desc = 'Abilities :\n'
         for ability in self.abilities:
-            desc += ability + "\n"
+            desc += "> " + ability + "\n"
 
         return desc
 
@@ -54,44 +58,50 @@ class Pokedex(toga.App):
         self.headings = ['Name']
         self.current_pokemon = None
 
-        self.load_data()
         self.create_components()
+        self.load_data()
 
-    def load_data(self):
+    def get_url_all_pokemon(self):
+        return "{}?offset={}&limit={}".format(POKE_API, self.offset, self.limit)
+
+    def get_url_pokemon(self, pokemon_id):
+        return "{}{}".format(POKEMON_API, pokemon_id)
+
+    def get_all_pokemon(self):
         self.pokemon.clear()
-        path = "{}?offset={}&limit={}".format(POKE_API, self.offset, self.limit)
 
-        response = requests.get(path)
+        response = requests.get(self.get_url_all_pokemon())
         if response:
             result = response.json()
 
             for element in result['results']:
                 self.pokemon.append(element['name'])
 
-    def load_element(self, id):
-        pokemon = self.pokemon_loaded.get(id)
-        if pokemon:
+        self.table.data = self.pokemon
+        self.title.text = TITLE
+
+    def get_pokemon(self, pokemon_id):
+        response = requests.get(self.get_url_pokemon(pokemon_id))
+        if response:
+            result = response.json()
+            pokemon = Pokemon(id, result)
+
             self.current_pokemon = pokemon
-        else:
-            path = "{}{}".format(POKEMON_API, id)
+            self.update_information_area()
 
-            response = requests.get(path)
-            if response:
-                result = response.json()
+    def load_data(self):
+        thread = threading.Thread(target=self.get_all_pokemon)
+        thread.start()
 
-                pokemon = Pokemon(id)
-                pokemon.create_by_dict(result)
-
-                self.current_pokemon = pokemon
-                self.pokemon_loaded[id] = pokemon
-
-
-        self.update_information_area()
+    def load_element(self, pokemon_id):
+        thread = threading.Thread(target=self.get_pokemon, args=[pokemon_id])
+        thread.start()
 
     def create_components(self):
         self.create_table()
         self.create_next_command()
         self.create_previous_command()
+        self.create_progress_bar()
         self.create_image_view(DEFAULT_IMAGE)
         self.create_description_content(TITLE, TEXT)
 
@@ -126,9 +136,11 @@ class Pokedex(toga.App):
         self.title.style.padding_bottom = 10
         self.description.style.font_size = 18
 
+    def create_progress_bar(self):
+        self.progress_bar = toga.ProgressBar(style=Pack(flex=1, visibility=VISIBLE), max=1, running=False, value=0)
+
     def startup(self):
         self.main_window = toga.MainWindow('main', title=self.name, size=self.size)
-
         information_area = toga.Box(
             children=[self.image_view, self.title, self.description],
             style=Pack(
@@ -142,19 +154,25 @@ class Pokedex(toga.App):
 
         self.main_window.content = split
 
-        self.main_window.toolbar.add(self.next_command, self.previous_command)
+        self.main_window.toolbar.add(self.previous_command, self.next_command)
 
         self.main_window.show()
 
     def update_information_area(self):
-        if self.current_pokemon:
-            self.image_view.image = toga.Image(self.current_pokemon.sprite)
-            self.description.text = self.current_pokemon.description
+        self.image_view.image = toga.Image(self.current_pokemon.sprite)
+        self.description.text = self.current_pokemon.description
+        self.title.text = self.current_pokemon.name
 
     #CALLBACKS
     def select_element(self, widget, row):
-        self.load_element(row.name)
-        self.title.text = self.title_formart(row.name)
+        if row:
+            self.reset_description_area()
+            self.load_element(row.name)
+
+    def reset_description_area(self):
+        self.title.text = 'Loading ... '
+        self.image_view.image = None
+        self.description.text = ""
 
     def title_formart(self, name):
         return name[0].upper() + name[1:]
@@ -170,12 +188,12 @@ class Pokedex(toga.App):
     def handler_command(self, widget):
         widget.enabled = False
 
+        self.reset_description_area()
         self.load_data()
-        self.table.data = self.pokemon
-        self.table._selection = None
 
         widget.enabled = True
 
+        self.table.data = self.pokemon
         self.validate_previous_command()
 
     def validate_previous_command(self):

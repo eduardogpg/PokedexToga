@@ -16,5 +16,5 @@ POKE_API = 'https://pokeapi.co/api/v2/pokemon-form'
 POKEMON_API = 'https://pokeapi.co/api/v2/pokemon/'
 
 DEFAULT_IMAGE = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/1.png'
-TITLE =  'POKEMON'
-TEXT = 'Pokemons\n\n\n\n\n\n'
+TITLE =  'Selecciona un Pokemon'
+TEXT = '\n\n\n\n\n\n\n'
